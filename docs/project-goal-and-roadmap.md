@@ -2,6 +2,8 @@
 
 Decision baseline: 22 November 2026, local release candidate `0.2.0-rc.1`, source commit `35ecc25`.
 
+The handoff below describes that retained archive. A later source revision added optional Three.js preview under the same package version. Consult the [production readiness checklist](production-readiness.md) when choosing an archive or assessing current release evidence.
+
 ## Project goal
 
 Enable a business user in Singapore to describe an internal workflow in Codex, inspect a preview, request a correction, and save a silent 2D animation they can reopen and replay offline on a macOS ARM64 workstation. The first end-to-end milestone is a pilot participant completing that journey on a second Mac using the private installation package.

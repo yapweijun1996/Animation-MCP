@@ -2,6 +2,8 @@
 
 Animation MCP is a local stdio server for 2D animation. It validates declarative scenes, previews individual frames, exports animated SVG, and optionally renders silent video. It uses the [MCP TypeScript SDK v1](https://ts.sdk.modelcontextprotocol.io/server).
 
+The Singapore macOS ARM64 pilot is awaiting release approval. Before handing off a private archive, use the [production readiness checklist in the source repository](https://github.com/yapweijun1996/Animation-MCP/blob/main/docs/production-readiness.md).
+
 ## Build and connect
 
 Use Node.js 24 LTS. From the repository root, run:
@@ -50,7 +52,6 @@ Configure `ANIMATION_MCP_FFMPEG` and `ANIMATION_MCP_FFPROBE` with absolute execu
 Use the same Node.js and npm versions for each rebuild. The macOS ARM64 reference versions are Node.js `24.21.0` and npm `11.19.0`. Run these commands from the source repository with `HEAD` set to the release revision.
 
 ```sh
-source_dir=$(pwd)
 revision=$(git rev-parse HEAD)
 build_dir=$(mktemp -d)
 release_dir=$(mktemp -d)
@@ -65,15 +66,14 @@ printf 'Source revision: %s\nArchive: %s/%s\n' "$revision" "$release_dir" "$pack
 
 `npm pack` runs the TypeScript build through `prepack` and includes the compiled server and `npm-shrinkwrap.json`. The shrinkwrap locks the dependency graph for both the build and the installed package. Provision the browser, FFmpeg, and FFprobe separately for video export.
 
-Check the archive checksum, then install and exercise its CLI in the empty prefix.
+Check the archive checksum, then install and exercise its CLI in the empty prefix. These commands select the SVG-only installation. For a Three.js evaluation, use `--include=optional` in place of `--omit=optional` for installation and the SBOM.
 
 ```sh
 (cd "$release_dir" && shasum -a 256 -c "$package_file.sha256")
-printf '%s\n' '{"name":"animation-mcp-release-check","version":"0.0.0","private":true}' > "$install_dir/package.json"
 printf '%s\n' '{"name":"animation-mcp-release-verification","version":"1.0.0","private":true}' > "$install_dir/package.json"
-npm install --prefix "$install_dir" --omit=dev --ignore-scripts "$release_dir/$package_file"
-node "$source_dir/scripts/verify-release.mjs" "$install_dir"
-npm sbom --prefix "$install_dir" --omit=dev --sbom-format=cyclonedx > "$release_dir/$package_file.cdx.json"
+npm install --prefix "$install_dir" --omit=dev --omit=optional --ignore-scripts "$release_dir/$package_file"
+node "$build_dir/scripts/verify-release.mjs" "$install_dir"
+npm sbom --prefix "$install_dir" --omit=dev --omit=optional --sbom-format=cyclonedx > "$release_dir/$package_file.cdx.json"
 ```
 
 Retain the versioned archive, its SHA-256 file, the installed dependency SBOM, and the source revision together. For an installed archive, point Codex at the absolute path to `node_modules/.bin/animation-mcp` in the installation prefix.
@@ -123,7 +123,7 @@ Example arguments for `animation_export`:
 
 Layers draw in array order. Rectangles take `width` and `height`, circles take `radius`, and text takes `text` and `fontSize`. Keyframes set top-left coordinates for rectangles, center coordinates for circles, and baseline coordinates for text. Positions and opacity interpolate linearly, holding the first or last keyframe outside its interval. Keyframe opacity defaults to layer opacity, which defaults to 1. Text uses the system sans-serif font.
 
-Export samples each frame at its start time and rounds partial final frames up to one full frame. It requires even dimensions and supports one export at a time per server process. Scenes support up to 30 seconds, 1920×1080, 60 fps, and 64 layers, with a combined export limit of 300 million frame pixels. The tool returns after encoding and verification, so longer renders may require a longer client tool timeout.
+Video export samples each frame at its start time and rounds partial final frames up to one full frame. It requires even dimensions and supports one video export at a time per server process. 2D scenes support up to 30 seconds, 1920×1080, 60 fps, and 64 layers. Video export also limits each job to 300 million frame pixels. The tool returns after encoding and verification, so longer video renders may require a longer client tool timeout.
 
 ## Optional Three.js preview
 

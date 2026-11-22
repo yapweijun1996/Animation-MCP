@@ -16,11 +16,13 @@ The pilot covers silent 2D SVG scenes with rectangles, circles, text, and positi
 | Primary video candidate | `mp4`, H.264 via `libx264`, `yuv420p`, one video stream and zero audio streams | Qualify the exact FFmpeg/x264 build and the designated playback application for this Singapore internal business workflow. QuickTime Player is the existing playback candidate. |
 | Fallback video candidate | `webm`, VP9 via `libvpx-vp9`, `yuv420p`, one video stream and zero audio streams | Qualify the exact VP9 encoder and playback path separately. Enable WebM as the pilot's video format only after the pilot owner accepts the change and the intended users' playback workflow passes. |
 
-For the SVG workflow, verify that the MCP advertises only validation, preview, and SVG export. Use the video gates below when approving a video-enabled profile. Set `ANIMATION_MCP_VIDEO_FORMATS` to the single cleared video format if qualifying such a profile.
+For the SVG workflow, set `ANIMATION_MCP_VIDEO_FORMATS=none`, leave `ANIMATION_MCP_ENABLE_3D` unset or set it to `false`, and verify that the MCP advertises only validation, preview, and SVG export. Use the video gates below when approving a video-enabled profile. Set `ANIMATION_MCP_VIDEO_FORMATS` to the single cleared video format if qualifying such a profile.
 
 ## Release acceptance
 
 Record each result, the tested package version and SHA-256, the macOS version and binary versions, and a link to the supporting evidence. Prior development runs can guide these checks. Close the gates against the actual candidate archive and the approved runtime.
+
+Use the [production readiness checklist](production-readiness.md) for the current evidence, owners, and steps to reach a release decision.
 
 | Gate | Pass criteria |
 | --- | --- |
