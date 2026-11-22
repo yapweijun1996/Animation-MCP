@@ -17,6 +17,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepack": "npm run build",
+    "test:rendering": "node --test scripts/verify-rendering.test.mjs",
     "start": "node dist/index.js"
   },
   "dependencies": {
@@ -26,6 +27,10 @@
   },
   "devDependencies": {
     "@types/node": "24.19.2",
+    "@types/three": "0.187.0",
     "typescript": "5.9.3"
+  },
+  "optionalDependencies": {
+    "three": "0.187.0"
   }
 }

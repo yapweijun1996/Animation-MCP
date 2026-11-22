@@ -78,6 +78,10 @@ npm sbom --prefix "$install_dir" --omit=dev --sbom-format=cyclonedx > "$release_
 
 Retain the versioned archive, its SHA-256 file, the installed dependency SBOM, and the source revision together. For an installed archive, point Codex at the absolute path to `node_modules/.bin/animation-mcp` in the installation prefix.
 
+## Rendering regression checks
+
+After `npm ci` and `npx playwright install chromium --only-shell`, run `npm run test:rendering`. The macOS ARM64 GitHub Actions job runs the same command. It builds one archive, installs it in two empty directories, and uses the same bouncing-ball timeline for both renderers. The Three.js profile returns different PNGs at takeoff and the first apex. The SVG profile omits optional npm dependencies, exports through MCP, and plays the file in offline Chromium through the last frame and a reload.
+
 ## Tools
 
 | Tool | Arguments | Result |
@@ -120,3 +124,36 @@ Example arguments for `animation_export`:
 Layers draw in array order. Rectangles take `width` and `height`, circles take `radius`, and text takes `text` and `fontSize`. Keyframes set top-left coordinates for rectangles, center coordinates for circles, and baseline coordinates for text. Positions and opacity interpolate linearly, holding the first or last keyframe outside its interval. Keyframe opacity defaults to layer opacity, which defaults to 1. Text uses the system sans-serif font.
 
 Export samples each frame at its start time and rounds partial final frames up to one full frame. It requires even dimensions and supports one export at a time per server process. Scenes support up to 30 seconds, 1920×1080, 60 fps, and 64 layers, with a combined export limit of 300 million frame pixels. The tool returns after encoding and verification, so longer renders may require a longer client tool timeout.
+
+## Optional Three.js preview
+
+Set `ANIMATION_MCP_ENABLE_3D=true` to add `animation_preview_3d`. This tool returns a still PNG at the requested time. It needs the optional Three.js npm dependency and the version-matched Playwright Chromium headless shell. It can run alongside the offline SVG tools with video disabled. An SVG-only installation can omit optional dependencies with `--omit=optional`.
+
+```sh
+npx playwright install chromium --only-shell
+codex mcp add animation-3d --env ANIMATION_MCP_ENABLE_3D=true --env ANIMATION_MCP_VIDEO_FORMATS=none -- "$(command -v node)" "$PWD/dist/index.js"
+```
+
+The input is a 3D scene with `width` (16–960), `height` (16–540), `duration` (up to 30 seconds), an optional hex `background`, and up to eight `spheres`. Each sphere has a `radius`, hex `color`, and up to 120 strictly increasing keyframes. Each keyframe gives the sphere center as `x`, `y`, and `z` in world units, with `y` pointing up from the floor. The preview uses a fixed camera, a floor and lighting. It interpolates positions linearly and holds the first and last keyframe positions outside their interval.
+
+Example arguments for `animation_preview_3d`:
+
+```json
+{
+  "time": 0.5,
+  "scene": {
+    "width": 480,
+    "height": 270,
+    "duration": 1,
+    "spheres": [{
+      "radius": 0.42,
+      "color": "#FFAD36",
+      "keyframes": [
+        { "time": 0, "x": -4, "y": 0.42, "z": 0 },
+        { "time": 0.5, "x": 0, "y": 3.32, "z": 0 },
+        { "time": 1, "x": 4, "y": 0.42, "z": 0 }
+      ]
+    }]
+  }
+}
+```

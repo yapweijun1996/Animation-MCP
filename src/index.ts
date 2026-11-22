@@ -5,6 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { exportSvg, exportVideo } from './export.js';
 import { frameCount, renderSvg, sceneSchema } from './scene.js';
+import { previewThree, threeSceneSchema } from './three-preview.js';
 
 const { name, version } = createRequire(import.meta.url)('../package.json');
 const server = new McpServer({ name, version });
@@ -64,6 +65,35 @@ server.registerTool('animation_export_svg', {
   },
   annotations: { destructiveHint: false, openWorldHint: false },
 }, async ({ scene }, { signal }) => result(await exportSvg(scene, AbortSignal.any([signal, shutdown.signal]))));
+
+if (process.env.ANIMATION_MCP_ENABLE_3D === 'true') {
+  let previewing = false;
+  server.registerTool('animation_preview_3d', {
+    description: 'Render a still PNG at the given time from a 3D scene of animated spheres using Three.js.',
+    inputSchema: { scene: threeSceneSchema, time: previewTime },
+    outputSchema: {
+      time: previewTime,
+      width: threeSceneSchema.shape.width,
+      height: threeSceneSchema.shape.height,
+      mimeType: z.literal('image/png'),
+    },
+    annotations: readOnly,
+  }, async ({ scene, time }, { signal }) => {
+    if (time > scene.duration) throw new Error('Preview time exceeds the scene duration.');
+    if (previewing) throw new Error('A 3D preview is already running. Retry once it finishes.');
+    previewing = true;
+    try {
+      const png = await previewThree(scene, time, AbortSignal.any([signal, shutdown.signal]));
+      const response = result({ time, width: scene.width, height: scene.height, mimeType: 'image/png' });
+      return {
+        ...response,
+        content: [...response.content, { type: 'image', mimeType: 'image/png', data: png.toString('base64') }],
+      };
+    } finally {
+      previewing = false;
+    }
+  });
+}
 
 let exporting = false;
 if (enabledVideoFormats.length > 0) server.registerTool('animation_export', {
