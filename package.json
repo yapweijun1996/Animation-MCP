@@ -1,0 +1,31 @@
+{
+  "name": "animation-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local stdio MCP server for declarative 2D animation",
+  "type": "module",
+  "bin": {
+    "animation-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "npm-shrinkwrap.json"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "playwright": "1.65.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "5.9.3"
+  }
+}
