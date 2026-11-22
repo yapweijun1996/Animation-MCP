@@ -1,6 +1,6 @@
 # Animation MCP
 
-Animation MCP is a local stdio server that validates declarative 2D scenes, previews frames as SVG, and exports silent video. It uses the [MCP TypeScript SDK v1](https://ts.sdk.modelcontextprotocol.io/server).
+Animation MCP is a local stdio server for 2D animation. It validates declarative scenes, previews individual frames, exports animated SVG, and optionally renders silent video. It uses the [MCP TypeScript SDK v1](https://ts.sdk.modelcontextprotocol.io/server).
 
 ## Build and connect
 
@@ -19,7 +19,7 @@ ffmpeg -version
 ffprobe -version
 ```
 
-FFmpeg must include `libvpx-vp9` for WebM or `libx264` for MP4. Validation and SVG previews work without these executables or a browser installation. The source repository's `docs/v1.1-commercial-license-audit.md` records the distribution and codec review.
+FFmpeg must include `libvpx-vp9` for WebM or `libx264` for MP4. Validation, SVG previews, and SVG export work without those executables or a Playwright browser installation. The source repository's `docs/v1.1-commercial-license-audit.md` records the distribution and codec review.
 
 For clients with JSON MCP settings, use:
 
@@ -28,7 +28,8 @@ For clients with JSON MCP settings, use:
   "mcpServers": {
     "animation": {
       "command": "node",
-      "args": ["/absolute/path/to/Animation-MCP/dist/index.js"]
+      "args": ["/absolute/path/to/Animation-MCP/dist/index.js"],
+      "env": { "ANIMATION_MCP_VIDEO_FORMATS": "none" }
     }
   }
 }
@@ -37,10 +38,12 @@ For clients with JSON MCP settings, use:
 For Codex CLI, run this from the repository root if you want to register it:
 
 ```sh
-codex mcp add animation -- "$(command -v node)" "$PWD/dist/index.js"
+codex mcp add animation --env ANIMATION_MCP_VIDEO_FORMATS=none -- "$(command -v node)" "$PWD/dist/index.js"
 ```
 
-Configure `ANIMATION_MCP_FFMPEG` and `ANIMATION_MCP_FFPROBE` with absolute executable paths if the MCP host has a restricted `PATH`. Set `ANIMATION_MCP_OUTPUT_DIR` to an absolute directory to retain exports in a known location. The default is the OS temporary directory. Each successful export has its own directory and returns the absolute path to the video. Diagnostics go to stderr.
+For an offline SVG workflow set `ANIMATION_MCP_VIDEO_FORMATS=none` in the MCP server environment. This disables the video tool. The video formats can also be set to `mp4` or `webm` individually. The development default is `mp4,webm`.
+
+Configure `ANIMATION_MCP_FFMPEG` and `ANIMATION_MCP_FFPROBE` with absolute executable paths if the MCP host has a restricted `PATH`. Set `ANIMATION_MCP_OUTPUT_DIR` to an absolute directory to retain exports in a known location. The default is the OS temporary directory. Each successful export has its own directory and returns the absolute path to the file. Diagnostics go to stderr.
 
 ## Build a private release archive
 
@@ -67,6 +70,7 @@ Check the archive checksum, then install and exercise its CLI in the empty prefi
 ```sh
 (cd "$release_dir" && shasum -a 256 -c "$package_file.sha256")
 printf '%s\n' '{"name":"animation-mcp-release-check","version":"0.0.0","private":true}' > "$install_dir/package.json"
+printf '%s\n' '{"name":"animation-mcp-release-verification","version":"1.0.0","private":true}' > "$install_dir/package.json"
 npm install --prefix "$install_dir" --omit=dev --ignore-scripts "$release_dir/$package_file"
 node "$source_dir/scripts/verify-release.mjs" "$install_dir"
 npm sbom --prefix "$install_dir" --omit=dev --sbom-format=cyclonedx > "$release_dir/$package_file.cdx.json"
@@ -80,9 +84,12 @@ Retain the versioned archive, its SHA-256 file, the installed dependency SBOM, a
 | --- | --- | --- |
 | `animation_validate` | `scene` | Scene dimensions, duration, fps, and scheduled frame count |
 | `animation_preview` | `scene`, `time` | Standalone SVG markup at the given time in seconds |
+| `animation_export_svg` | `scene` | Local animated SVG file with dimensions and duration |
 | `animation_export` | `scene`, `format` (`webm` or `mp4`) | Verified file path, codec, dimensions, frame count, and scheduled video duration |
 
-All three tools advertise output schemas and return JSON data in `structuredContent` and as a JSON text block.
+All enabled tools advertise output schemas and return JSON data in `structuredContent` and as a JSON text block.
+
+Open an animated SVG directly in a browser. It plays once, holds the final image, and can be replayed by reloading. SVG playback follows the keyframe times directly. Use the same example scene below with `animation_export_svg` by passing only the `scene` field.
 
 Example arguments for `animation_export`:
 

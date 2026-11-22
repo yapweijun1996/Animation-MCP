@@ -1,15 +1,21 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { exportVideo } from './export.js';
+import { exportSvg, exportVideo } from './export.js';
 import { frameCount, renderSvg, sceneSchema } from './scene.js';
 
-const server = new McpServer({ name: 'animation-mcp', version: '0.1.0' });
+const { name, version } = createRequire(import.meta.url)('../package.json');
+const server = new McpServer({ name, version });
 const shutdown = new AbortController();
 const readOnly = { readOnlyHint: true, openWorldHint: false };
 const { width, height, fps, duration } = sceneSchema.shape;
 const videoFormat = z.enum(['webm', 'mp4']);
+const configuredFormats = process.env.ANIMATION_MCP_VIDEO_FORMATS ?? 'mp4,webm';
+const enabledVideoFormats = configuredFormats === 'none'
+  ? []
+  : [...new Set(z.array(videoFormat).parse(configuredFormats.split(',')))];
 const frameMetadata = {
   width,
   height,
@@ -45,10 +51,24 @@ server.registerTool('animation_preview', {
   return result({ time, mimeType: 'image/svg+xml', svg: renderSvg(scene, time) });
 });
 
+server.registerTool('animation_export_svg', {
+  description: 'Write a standalone animated SVG file for offline browser playback. It plays once and holds the last frame.',
+  inputSchema: { scene: sceneSchema },
+  outputSchema: {
+    path: z.string().min(1).describe('Absolute path to the animated SVG'),
+    format: z.literal('svg'),
+    mimeType: z.literal('image/svg+xml'),
+    width,
+    height,
+    duration,
+  },
+  annotations: { destructiveHint: false, openWorldHint: false },
+}, async ({ scene }, { signal }) => result(await exportSvg(scene, AbortSignal.any([signal, shutdown.signal]))));
+
 let exporting = false;
-server.registerTool('animation_export', {
+if (enabledVideoFormats.length > 0) server.registerTool('animation_export', {
   description: 'Render a silent 2D animation to a new local WebM (VP9) or MP4 (H.264) file.',
-  inputSchema: { scene: sceneSchema, format: videoFormat },
+  inputSchema: { scene: sceneSchema, format: z.enum(enabledVideoFormats) },
   outputSchema: {
     path: z.string().min(1).describe('Absolute path to the rendered video'),
     format: videoFormat,

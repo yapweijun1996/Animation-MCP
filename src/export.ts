@@ -1,10 +1,10 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { chromium } from 'playwright';
-import { frameCount, renderSvg } from './scene.js';
+import { frameCount, renderAnimatedSvg, renderSvg } from './scene.js';
 import type { Scene } from './scene.js';
 
 const run = promisify(execFile);
@@ -12,6 +12,26 @@ const profiles = {
   webm: { codec: 'vp9', args: ['-c:v', 'libvpx-vp9', '-crf', '32', '-b:v', '0'] },
   mp4: { codec: 'h264', args: ['-c:v', 'libx264', '-crf', '20', '-movflags', '+faststart'] },
 };
+
+async function createOutputDirectory() {
+  const root = resolve(process.env.ANIMATION_MCP_OUTPUT_DIR ?? tmpdir());
+  await mkdir(root, { recursive: true, mode: 0o700 });
+  return mkdtemp(join(root, 'animation-mcp-'));
+}
+
+export async function exportSvg(scene: Scene, signal: AbortSignal) {
+  signal.throwIfAborted();
+  const directory = await createOutputDirectory();
+  const path = join(directory, 'animation.svg');
+  try {
+    await writeFile(path, renderAnimatedSvg(scene), { signal, flag: 'wx' });
+    signal.throwIfAborted();
+    return { path, format: 'svg', mimeType: 'image/svg+xml', width: scene.width, height: scene.height, duration: scene.duration };
+  } catch (error) {
+    await rm(directory, { recursive: true, force: true });
+    throw error;
+  }
+}
 
 export async function exportVideo(scene: Scene, format: keyof typeof profiles, signal: AbortSignal) {
   const frames = frameCount(scene);
@@ -24,9 +44,7 @@ export async function exportVideo(scene: Scene, format: keyof typeof profiles, s
   }
 
   const profile = profiles[format];
-  const outputRoot = resolve(process.env.ANIMATION_MCP_OUTPUT_DIR ?? tmpdir());
-  await mkdir(outputRoot, { recursive: true, mode: 0o700 });
-  const directory = await mkdtemp(join(outputRoot, 'animation-mcp-'));
+  const directory = await createOutputDirectory();
   const frameDirectory = join(directory, 'frames');
   const output = join(directory, `animation.${format}`);
   try {

@@ -85,19 +85,56 @@ function escapeText(text: string): string {
   return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
-export function renderSvg(scene: Scene, time: number): string {
+function renderScene(scene: Scene, time: number, animated: boolean): string {
   const layers = scene.layers.map((layer) => {
     const { x, y, opacity } = sample(layer, time);
+    const xAttribute = layer.type === 'circle' ? 'cx' : 'x';
+    const yAttribute = layer.type === 'circle' ? 'cy' : 'y';
+    const position = `${xAttribute}="${x}" ${yAttribute}="${y}"`;
     const paint = `fill="${layer.fill}" opacity="${opacity}"`;
+    const motion = animated ? renderMotion(layer, scene.duration, xAttribute, yAttribute) : '';
     switch (layer.type) {
       case 'rect':
-        return `<rect x="${x}" y="${y}" width="${layer.width}" height="${layer.height}" ${paint}/>`;
+        return `<rect ${position} width="${layer.width}" height="${layer.height}" ${paint}>${motion}</rect>`;
       case 'circle':
-        return `<circle cx="${x}" cy="${y}" r="${layer.radius}" ${paint}/>`;
+        return `<circle ${position} r="${layer.radius}" ${paint}>${motion}</circle>`;
       case 'text':
-        return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="${layer.fontSize}" ${paint}>${escapeText(layer.text)}</text>`;
+        return `<text ${position} font-family="sans-serif" font-size="${layer.fontSize}" ${paint}>${motion}${escapeText(layer.text)}</text>`;
     }
   });
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${scene.width}" height="${scene.height}">` +
     `<rect width="100%" height="100%" fill="${scene.background}"/>${layers.join('')}</svg>`;
+}
+
+function renderMotion(layer: Layer, duration: number, xAttribute: string, yAttribute: string): string {
+  const times = layer.keyframes.map(({ time }) => time);
+  if (times[0] > 0) times.unshift(0);
+  if (times.at(-1) !== duration) times.push(duration);
+  const keyTimes = times.map((time) => decimal(time / duration)).join(';');
+  const poses = times.map((time) => sample(layer, time));
+  const tracks = [
+    [xAttribute, poses.map(({ x }) => x)],
+    [yAttribute, poses.map(({ y }) => y)],
+    ['opacity', poses.map(({ opacity }) => opacity)],
+  ] as const;
+  return tracks.filter(([, values]) => values.some((value) => value !== values[0]))
+    .map(([attribute, values]) =>
+      `<animate attributeName="${attribute}" dur="${decimal(duration)}s" fill="freeze" calcMode="linear" ` +
+      `keyTimes="${keyTimes}" values="${values.map(decimal).join(';')}"/>`,
+    ).join('');
+}
+
+function decimal(value: number): string {
+  const [coefficient, exponent] = String(Math.abs(value)).split('e-');
+  if (exponent === undefined) return String(value);
+  // SMIL clock values use decimal notation.
+  return `${value < 0 ? '-' : ''}0.${'0'.repeat(Number(exponent) - 1)}${coefficient.replace('.', '')}`;
+}
+
+export function renderSvg(scene: Scene, time: number): string {
+  return renderScene(scene, time, false);
+}
+
+export function renderAnimatedSvg(scene: Scene): string {
+  return renderScene(scene, 0, true);
 }
