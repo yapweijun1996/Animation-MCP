@@ -157,3 +157,7 @@ Example arguments for `animation_preview_3d`:
   }
 }
 ```
+
+## Blender DEM aerial pipeline
+
+A free Blender-based map animation pilot (Strait of Malacca) is documented in [docs/blender-dem-aerial-pipeline.md](docs/blender-dem-aerial-pipeline.md), with scripts in `examples/malacca-blender/`.
